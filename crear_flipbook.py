@@ -800,12 +800,30 @@ class CreadorFlipbook:
 
         cfg = cargar_config()
 
-        root.columnconfigure(0, weight=0)   # formulario: ancho fijo
-        root.columnconfigure(1, weight=1)   # vista previa: se estira
-        root.rowconfigure(0, weight=1)
+        self.notebook = ttk.Notebook(root)
+        self.notebook.pack(fill=tk.BOTH, expand=True)
+
+        self.tab_preparar = ttk.Frame(self.notebook)
+        self.tab_flipbook = ttk.Frame(self.notebook)
+        self.tab_periodicos = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab_preparar, text="1. Preparar PDF")
+        self.notebook.add(self.tab_flipbook, text="2. Generar flipbook")
+        self.notebook.add(self.tab_periodicos, text="3. Mis periódicos")
+
+        self._construir_tab_flipbook(self.tab_flipbook)
+        self._construir_tab_periodicos(self.tab_periodicos)
+        self._construir_tab_preparar(self.tab_preparar)
+
+        # Limpiar la vista previa temporal al cerrar la ventana
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _construir_tab_flipbook(self, parent):
+        parent.columnconfigure(0, weight=0)
+        parent.columnconfigure(1, weight=1)
+        parent.rowconfigure(0, weight=1)
 
         # ===================== COLUMNA IZQUIERDA: formulario =====================
-        left = ttk.Frame(root, padding="12")
+        left = ttk.Frame(parent, padding="12")
         left.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         left.columnconfigure(0, weight=1)
 
@@ -884,11 +902,8 @@ class CreadorFlipbook:
         self.btn_instrucciones = ttk.Button(button_frame, text="📋 Instrucciones", command=self.abrir_instrucciones, state=tk.DISABLED)
         self.btn_instrucciones.pack(side=tk.LEFT, padx=4)
 
-        self.btn_panel = ttk.Button(button_frame, text="📚 Mis periódicos", command=self.abrir_panel_periodicos)
-        self.btn_panel.pack(side=tk.LEFT, padx=4)
-
         # ===================== COLUMNA DERECHA: vista previa =====================
-        right = ttk.LabelFrame(root, text="👁 Vista previa de páginas", padding="10")
+        right = ttk.LabelFrame(parent, text="👁 Vista previa de páginas", padding="10")
         right.grid(row=0, column=1, sticky=(tk.N, tk.S, tk.E, tk.W), padx=(0, 12), pady=12)
         right.columnconfigure(0, weight=1)
         right.rowconfigure(1, weight=1)
@@ -912,8 +927,61 @@ class CreadorFlipbook:
         ttk.Label(right, text="El visor pasa página a página dentro de la app. Además, al pulsar\n'Generar vista previa' se abre el flipbook real (con animación) en el\nnavegador, sin publicar nada. Si está bien, pulsa 'Generar y Publicar'.",
                   foreground="gray", justify=tk.CENTER).grid(row=3, column=0, pady=(8, 0))
 
-        # Limpiar la vista previa temporal al cerrar la ventana
-        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+    def _construir_tab_periodicos(self, parent):
+        cont = ttk.Frame(parent, padding=10)
+        cont.pack(fill=tk.BOTH, expand=True)
+        barra = ttk.Frame(cont)
+        barra.pack(fill=tk.X)
+        ttk.Button(barra, text="🔄 Recargar",
+                   command=lambda: self._recargar_periodicos()).pack(side=tk.LEFT)
+        self._periodicos_estado = ttk.Label(cont, text="", foreground="blue")
+        self._periodicos_estado.pack(anchor=tk.W, pady=(6, 0))
+        self._periodicos_filas = ttk.Frame(cont)
+        self._periodicos_filas.pack(fill=tk.BOTH, expand=True, pady=(8, 0))
+        self._recargar_periodicos()
+
+    def _pintar_periodicos(self, items, error=None):
+        for w in self._periodicos_filas.winfo_children():
+            w.destroy()
+        if error:
+            self._periodicos_estado.config(
+                text="No se pudo cargar la lista. Revisa tu conexión a internet. "
+                     "Si el problema sigue, avisa a Dani.", foreground="red")
+            return
+        if not items:
+            self._periodicos_estado.config(text="Aún no hay periódicos publicados.",
+                                           foreground="blue")
+            return
+        self._periodicos_estado.config(text=f"{len(items)} periódico(s) publicado(s):",
+                                       foreground="green")
+        for it in items:
+            fila = ttk.Frame(self._periodicos_filas)
+            fila.pack(fill=tk.X, pady=2)
+            ttk.Label(fila, text=it["nombre"], width=26, anchor=tk.W).pack(side=tk.LEFT)
+            ttk.Button(fila, text="📋 Copiar", width=10,
+                       command=lambda u=it["url"]: self._copiar_url(u)).pack(side=tk.LEFT, padx=2)
+            ttk.Button(fila, text="🌐 Abrir", width=9,
+                       command=lambda u=it["url"]: webbrowser.open(u)).pack(side=tk.LEFT, padx=2)
+            ttk.Button(fila, text="🔄 Actualizar", width=12,
+                       command=lambda n=it["nombre"]: self._actualizar_desde_panel(n)).pack(side=tk.LEFT, padx=2)
+            ttk.Button(fila, text="🗑 Borrar", width=10,
+                       command=lambda n=it["nombre"]: self._borrar_desde_panel(n)).pack(side=tk.LEFT, padx=2)
+
+    def _recargar_periodicos(self):
+        self._periodicos_estado.config(text="Cargando...", foreground="blue")
+        def _w():
+            token = self._leer_token_github()
+            try:
+                items = github_pages.listar(token) if token else None
+                err = None if token else "sin-token"
+            except Exception:
+                items, err = None, "error"
+            self.root.after(0, lambda: self._pintar_periodicos(items or [], error=err))
+        threading.Thread(target=_w, daemon=True).start()
+
+    def _construir_tab_preparar(self, parent):
+        ttk.Label(parent, padding=20,
+                  text="Preparar PDF (en construcción)").pack()
 
     def generar_preview(self):
         if not self.pdf_path.get():
@@ -1308,70 +1376,21 @@ code {{
             self.root.update()
             self.status_label.config(text="Enlace copiado ✅", foreground="green")
 
-    def abrir_panel_periodicos(self):
-        win = tk.Toplevel(self.root)
-        win.title("Mis periódicos publicados")
-        win.geometry("720x420")
-        cont = ttk.Frame(win, padding=10)
-        cont.pack(fill=tk.BOTH, expand=True)
-        estado = ttk.Label(cont, text="Cargando...", foreground="blue")
-        estado.pack(anchor=tk.W)
-        filas = ttk.Frame(cont)
-        filas.pack(fill=tk.BOTH, expand=True, pady=(8, 0))
-
-        def pintar(items, error=None):
-            for w in filas.winfo_children():
-                w.destroy()
-            if error:
-                estado.config(text="No se pudo cargar la lista. Revisa tu conexión "
-                                   "a internet. Si sigue, avisa a Dani.", foreground="red")
-                return
-            if not items:
-                estado.config(text="Aún no hay periódicos publicados.", foreground="blue")
-                return
-            estado.config(text=f"{len(items)} periódico(s) publicado(s):", foreground="green")
-            for it in items:
-                fila = ttk.Frame(filas)
-                fila.pack(fill=tk.X, pady=2)
-                ttk.Label(fila, text=it["nombre"], width=26, anchor=tk.W).pack(side=tk.LEFT)
-                ttk.Button(fila, text="📋 Copiar", width=10,
-                           command=lambda u=it["url"]: self._copiar_url(u)).pack(side=tk.LEFT, padx=2)
-                ttk.Button(fila, text="🌐 Abrir", width=9,
-                           command=lambda u=it["url"]: webbrowser.open(u)).pack(side=tk.LEFT, padx=2)
-                ttk.Button(fila, text="🔄 Actualizar", width=12,
-                           command=lambda n=it["nombre"]: self._actualizar_desde_panel(win, n)).pack(side=tk.LEFT, padx=2)
-                ttk.Button(fila, text="🗑 Borrar", width=10,
-                           command=lambda n=it["nombre"]: self._borrar_desde_panel(win, n, recargar)).pack(side=tk.LEFT, padx=2)
-
-        def recargar():
-            estado.config(text="Cargando...", foreground="blue")
-            def _w():
-                token = self._leer_token_github()
-                try:
-                    items = github_pages.listar(token) if token else None
-                    err = None if token else "sin-token"
-                except Exception:
-                    items, err = None, "error"
-                self.root.after(0, lambda: pintar(items or [], error=err))
-            threading.Thread(target=_w, daemon=True).start()
-
-        recargar()
-
     def _copiar_url(self, url):
         self.root.clipboard_clear()
         self.root.clipboard_append(url)
         self.root.update()
 
-    def _actualizar_desde_panel(self, win, nombre):
+    def _actualizar_desde_panel(self, nombre):
         self.nombre_output.delete(0, tk.END)
         self.nombre_output.insert(0, nombre)
         self._actualizar_slug_label()
-        win.destroy()
+        self.notebook.select(self.tab_flipbook)
         messagebox.showinfo("Actualizar periódico",
             f"Para actualizar «{nombre}»: elige el PDF nuevo con «Examinar…» y pulsa "
             "«Generar enlace para la web». Se sobrescribirá manteniendo el mismo enlace.")
 
-    def _borrar_desde_panel(self, win, nombre, recargar):
+    def _borrar_desde_panel(self, nombre):
         if not messagebox.askyesno("Borrar periódico",
             f"¿Seguro que quieres borrar «{nombre}»?\n\n"
             "El enlace dejará de funcionar y tendrás que quitarlo también de la web "
@@ -1384,9 +1403,6 @@ code {{
                 if token:
                     github_pages.borrar(token, nombre)
                     ok = True
-                    # GitHub tiene latencia lectura-tras-escritura: esperamos a
-                    # que el borrado se refleje antes de recargar, si no el panel
-                    # mostraría el periódico como si no se hubiera borrado.
                     objetivo = github_pages.slug(nombre)
                     for _ in range(12):
                         try:
@@ -1403,7 +1419,7 @@ code {{
                 messagebox.showwarning("No se pudo borrar",
                     "No se ha podido borrar. Revisa tu conexión a internet. "
                     "Si el problema sigue, avisa a Dani.")
-            recargar()
+            self._recargar_periodicos()
         threading.Thread(target=_w, daemon=True).start()
 
     def _actualizar_slug_label(self, event=None):

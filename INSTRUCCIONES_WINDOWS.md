@@ -1,119 +1,113 @@
-# 🚀 Cómo hacer el .EXE para Pilar (Windows)
+# 🚀 Crear el .EXE en Windows (paso a paso)
 
-Pasos para crear el ejecutable que Pilar usará en Windows con un solo doble clic.
+Guía para **descargar el proyecto desde GitHub** y generar el ejecutable
+`GeneradorPeriodico.exe` que usará Pilar. Esto se hace **una sola vez** (o cada
+vez que haya cambios nuevos).
+
+> ℹ️ El `.exe` SOLO se puede crear desde Windows (PyInstaller no compila para
+> Windows desde Linux/Mac). Por eso estos pasos van en el PC con Windows.
 
 ---
 
-## **PASO 1: En el PC de Pilar (Windows), instalar requisitos UNA SOLA VEZ**
+## PASO 1 — Descargar el proyecto desde GitHub
 
-### 1.1 Instalar Python
+Tienes dos formas. La más sencilla:
+
+### Opción A — Descargar ZIP (sin instalar nada extra)
+1. Abre en el navegador: **https://github.com/dtabuyodesigner/generador_flipbook**
+2. Botón verde **`<> Code`** → **Download ZIP**.
+3. Extrae el ZIP, por ejemplo en `C:\GeneradorPeriodico\`.
+   (Dentro tendrás `crear_flipbook.py`, `github_pages.py`, `build.bat`, etc.)
+
+### Opción B — Con Git (si lo tienes instalado)
+```cmd
+cd C:\
+git clone https://github.com/dtabuyodesigner/generador_flipbook.git GeneradorPeriodico
+```
+
+> ⚠️ El archivo **`tokengenerarflipbook.txt` NO viene en GitHub** (es secreto, está
+> excluido a propósito). Tienes que **crearlo tú** en esa misma carpeta — ver PASO 3.
+
+---
+
+## PASO 2 — Instalar requisitos (una sola vez en ese PC)
+
+### 2.1 Python
 - Descarga Python 3.11+ desde https://www.python.org/downloads/
-- **IMPORTANTE:** Al instalar, marca la casilla **"Add Python to PATH"**
+- **IMPORTANTE:** al instalar marca **"Add Python to PATH"**.
 
-### 1.2 Instalar Poppler (necesario para leer PDFs)
-- Descarga Poppler para Windows: https://github.com/oschwartz10612/poppler-windows/releases
-- Descarga el archivo `Release-XX.XX.XX-X.zip` más reciente
-- Extrae el ZIP en: `C:\Program Files\poppler-24.02.0\`
-- La carpeta `bin` debe quedar en: `C:\Program Files\poppler-24.02.0\Library\bin`
-
-### 1.3 Abrir CMD como Administrador e instalar dependencias
-
-```cmd
-pip install pdf2image pillow pyinstaller
-```
+### 2.2 Poppler (necesario para leer PDFs)
+- Descarga el ZIP más reciente de https://github.com/oschwartz10612/poppler-windows/releases
+- Extrae en `C:\Program Files\poppler-XX.XX.X\`
+  (la app busca Poppler automáticamente en rutas habituales de `C:\Program Files`).
 
 ---
 
-## **PASO 2: Crear el .EXE (una sola vez)**
+## PASO 3 — Poner el token (secreto) en la carpeta
 
-### 2.1 Copia el script `crear_flipbook.py` al PC de Pilar
+El programa publica en internet usando un **token de GitHub**. Sin él, genera el
+periódico en local pero no lo sube.
 
-Ponlo en, por ejemplo: `C:\Users\Pilar\Desktop\GeneradorPeriodico\`
-
-### 2.2 Abre CMD en esa carpeta y ejecuta:
-
-```cmd
-cd C:\Users\Pilar\Desktop\GeneradorPeriodico
-pyinstaller --onefile --windowed --name "GeneradorPeriodico" --icon=icono.ico crear_flipbook.py
-```
-
-(Si no tienes icono `icono.ico`, quita el `--icon=icono.ico`)
-
-### 2.3 El .EXE se crea en:
-
-```
-C:\Users\Pilar\Desktop\GeneradorPeriodico\dist\GeneradorPeriodico.exe
-```
-
-### 2.4 Copia el .EXE al Escritorio de Pilar
-
-Ya está. Pilar solo tiene que **hacer doble clic en `GeneradorPeriodico.exe`** en su escritorio.
+1. En la carpeta del proyecto (`C:\GeneradorPeriodico\`), crea un archivo de texto
+   llamado exactamente **`tokengenerarflipbook.txt`**.
+2. Pega dentro **solo el token** (una línea, sin espacios ni saltos).
+   - El token empieza por `github_pat_...` (fine-grained) y tiene permisos
+     **Contents: Read and write** y **Pages: Read and write** sobre el repo
+     `generador_flipbook`.
+   - Si no lo tienes, créalo en GitHub → Settings → Developer settings →
+     Personal access tokens → Fine-grained tokens.
+3. Guarda el archivo.
 
 ---
 
-## **PASO 3: Flujo de Pilar (usar el .exe)**
+## PASO 4 — Crear el .EXE
 
-1. Doble clic en **`GeneradorPeriodico.exe`** del escritorio
-2. Clic en **"Examinar"** y selecciona su PDF
-3. Clic en **"Generar Flipbook"**
-4. ✅ Se abre el flipbook en el navegador automáticamente
-5. ✅ Se crea un ZIP listo para subir a WordPress
-6. Clic en **"📋 Instrucciones"** para ver cómo subirlo
+1. Abre la carpeta del proyecto en el Explorador.
+2. **Doble clic en `build.bat`**.
+   - Instala dependencias, construye el `.exe` y copia el token a `dist\`.
+   - Tarda 1-2 minutos. Al final dirá `EXITO!`.
+3. El resultado está en:
+   ```
+   C:\GeneradorPeriodico\dist\GeneradorPeriodico.exe
+   C:\GeneradorPeriodico\dist\tokengenerarflipbook.txt
+   ```
 
----
-
-## **PASO 4: Subir a WordPress**
-
-### **Opción A: Manual (recomendado)**
-
-1. En WordPress → **Medios → Añadir nuevo**
-2. Sube el ZIP creado (ej: `periodico_19_06_2026.zip`)
-
-> ⚠️ **Importante:** WordPress por defecto **no acepta ZIPs**. Para activarlo:
-> - Pide al admin del colegio que instale el plugin **"WP Extra File Types"**
-> - O usa el plugin **"WPvivid Backup"** (muchos colegios lo tienen)
-> - O simplemente sube `index.html` + carpeta `pages` por separado
-
-### **Opción B: Carpeta directa (más fácil)**
-
-En vez del ZIP, sube los archivos por FTP/SFTP a la carpeta del WordPress:
-- Pide al admin del colegio los datos FTP
-- Sube la carpeta completa generada
-- URL final: `https://colegio.com/periodicos/nombre_carpeta/`
-
-### **Opción C: Netlify Drop (sin WordPress, en 30 segundos)**
-
-1. Ve a https://app.netlify.com/drop
-2. Arrastra la carpeta completa del periódico
-3. ¡Listo! Te da una URL tipo `https://periodico-xxxxx.netlify.app`
-4. Comparte esa URL con los padres
+> El `.exe` ya lleva dentro `github_pages.py` (no hace falta repartirlo aparte).
+> Pero el **token** sí debe ir SIEMPRE en la misma carpeta que el `.exe`.
 
 ---
 
-## 🔧 Si quieres hacer .exe sin el CMD
+## PASO 5 — Entregar a Pilar
 
-Crea un archivo `build.bat` con este contenido:
+Copia a su equipo la **carpeta `dist\` completa** (o crea una carpeta con los dos
+archivos juntos):
 
-```bat
-@echo off
-pyinstaller --onefile --windowed --name "GeneradorPeriodico" crear_flipbook.py
-echo.
-echo ============================================
-echo  El EXE esta en: dist\GeneradorPeriodico.exe
-echo ============================================
-pause
+```
+GeneradorPeriodico\
+├── GeneradorPeriodico.exe
+└── tokengenerarflipbook.txt   ← imprescindible para publicar
 ```
 
-Doble clic en `build.bat` y se construye el .exe.
+Pilar solo tiene que **hacer doble clic en `GeneradorPeriodico.exe`**.
+Cómo lo usa ella en el día a día: ver **`GUIA_PILAR.md`**.
 
 ---
 
-## 📌 Resumen de archivos
+## Resumen rápido
 
-```
-GeneradorPeriodico/
-├── crear_flipbook.py        ← Script Python
-├── build.bat                ← (opcional) Para crear el .exe
-└── dist/
-    └── GeneradorPeriodico.exe ← El ejecutable final
-```
+| Paso | Qué haces |
+|------|-----------|
+| 1 | Descargas el proyecto de GitHub (Code → Download ZIP) |
+| 2 | Instalas Python (+PATH) y Poppler |
+| 3 | Creas `tokengenerarflipbook.txt` con el token dentro |
+| 4 | Doble clic en `build.bat` → se crea `dist\GeneradorPeriodico.exe` |
+| 5 | Entregas a Pilar la carpeta `dist\` (exe + token) |
+
+## Problemas comunes
+
+- **"Python no esta instalado"** → instálalo y marca *Add to PATH*; reinicia el CMD.
+- **Falla al leer el PDF** → Poppler no está instalado o no en `C:\Program Files`.
+- **Genera pero no publica el enlace** → falta `tokengenerarflipbook.txt` junto al
+  `.exe`, o el token caducó/no tiene permisos Contents+Pages.
+- **`build.bat` dice que falta `github_pages.py`** → descargaste solo un archivo;
+  baja el proyecto completo (ZIP).

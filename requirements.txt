@@ -1,2 +1,5 @@
 pdf2image>=1.17.0
 Pillow>=10.0.0
+pypdf>=4.0.0
+# Solo Windows (conversión Word->PDF con MS Word vía COM):
+pywin32>=306; sys_platform == "win32"

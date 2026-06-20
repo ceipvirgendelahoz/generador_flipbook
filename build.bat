@@ -42,7 +42,7 @@ if not defined POPPLER_BIN (
 )
 
 echo Instalando dependencias (pdf2image, pillow, pyinstaller)...
-pip install --quiet pdf2image pillow pyinstaller
+pip install --quiet pdf2image pillow pyinstaller pypdf pywin32
 
 echo Construyendo el .exe (esto tarda 1-2 minutos)...
 if defined POPPLER_BIN (

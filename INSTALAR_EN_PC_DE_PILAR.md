@@ -6,6 +6,12 @@ ella lo use. No hay que pasar nada a otro equipo.
 
 > Los pasos 1 y 2 (Python y Poppler) son **solo para construir** el programa,
 > una sola vez. Después, Pilar solo abre el `.exe`.
+>
+> **Para la pestaña "Preparar PDF"** (convertir Word a PDF): el PC necesita tener
+> **Microsoft Word o LibreOffice** instalado. El de Pilar normalmente ya tiene
+> uno de los dos; si no, instala LibreOffice gratis desde https://es.libreoffice.org.
+> (Esto NO va dentro del `.exe`; los PDF que ya sean PDF se unen sin necesidad de
+> Word/LibreOffice.)
 
 Tardarás unos 20 minutos la primera vez. Sigue el orden.
 

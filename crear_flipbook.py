@@ -27,6 +27,7 @@ import urllib.error
 from datetime import datetime
 
 import github_pages
+import pdf_tools
 
 # Configuración local (URL/usuario WordPress y, opcionalmente, la password)
 CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".flipbook_config.json")
@@ -980,8 +981,127 @@ class CreadorFlipbook:
         threading.Thread(target=_w, daemon=True).start()
 
     def _construir_tab_preparar(self, parent):
-        ttk.Label(parent, padding=20,
-                  text="Preparar PDF (en construcción)").pack()
+        self.archivos_preparar = []  # rutas en el orden elegido
+        cont = ttk.Frame(parent, padding="12")
+        cont.pack(fill=tk.BOTH, expand=True)
+        cont.columnconfigure(0, weight=1)
+        cont.rowconfigure(2, weight=1)
+
+        ttk.Label(cont, text="Añade los documentos (Word o PDF) y ponlos en el "
+                             "orden que quieras. Se unirán en un solo PDF.",
+                  wraplength=560, justify=tk.LEFT).grid(row=0, column=0, columnspan=2, sticky=tk.W)
+
+        botones_add = ttk.Frame(cont)
+        botones_add.grid(row=1, column=0, columnspan=2, sticky=tk.W, pady=(6, 4))
+        ttk.Button(botones_add, text="➕ Añadir archivos",
+                   command=self._preparar_anadir).pack(side=tk.LEFT)
+
+        self.lista_preparar = tk.Listbox(cont, height=10, activestyle="dotbox")
+        self.lista_preparar.grid(row=2, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
+        orden = ttk.Frame(cont)
+        orden.grid(row=2, column=1, sticky=tk.N, padx=(8, 0))
+        ttk.Button(orden, text="🔼 Subir", width=12, command=self._preparar_subir).pack(pady=2)
+        ttk.Button(orden, text="🔽 Bajar", width=12, command=self._preparar_bajar).pack(pady=2)
+        ttk.Button(orden, text="🗑 Quitar", width=12, command=self._preparar_quitar).pack(pady=2)
+
+        self.preparar_estado = ttk.Label(cont, text="", foreground="blue")
+        self.preparar_estado.grid(row=3, column=0, columnspan=2, sticky=tk.W, pady=(6, 2))
+        self.preparar_progress = ttk.Progressbar(cont, mode="indeterminate")
+        self.preparar_progress.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=2)
+
+        self.btn_unir = ttk.Button(cont, text="📎 Unir y crear el PDF del periódico",
+                                   command=self._preparar_unir)
+        self.btn_unir.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(4, 0))
+
+    def _preparar_refrescar_lista(self):
+        self.lista_preparar.delete(0, tk.END)
+        for ruta in self.archivos_preparar:
+            self.lista_preparar.insert(tk.END, os.path.basename(ruta))
+
+    def _preparar_anadir(self):
+        rutas = filedialog.askopenfilenames(
+            title="Elige documentos (Word o PDF)",
+            filetypes=[("Documentos", "*.pdf *.doc *.docx"),
+                       ("PDF", "*.pdf"), ("Word", "*.doc *.docx")])
+        for r in rutas:
+            self.archivos_preparar.append(r)
+        self._preparar_refrescar_lista()
+
+    def _preparar_sel(self):
+        sel = self.lista_preparar.curselection()
+        return sel[0] if sel else None
+
+    def _preparar_subir(self):
+        i = self._preparar_sel()
+        if i is None or i == 0:
+            return
+        self.archivos_preparar[i-1], self.archivos_preparar[i] = \
+            self.archivos_preparar[i], self.archivos_preparar[i-1]
+        self._preparar_refrescar_lista()
+        self.lista_preparar.selection_set(i-1)
+
+    def _preparar_bajar(self):
+        i = self._preparar_sel()
+        if i is None or i >= len(self.archivos_preparar) - 1:
+            return
+        self.archivos_preparar[i+1], self.archivos_preparar[i] = \
+            self.archivos_preparar[i], self.archivos_preparar[i+1]
+        self._preparar_refrescar_lista()
+        self.lista_preparar.selection_set(i+1)
+
+    def _preparar_quitar(self):
+        i = self._preparar_sel()
+        if i is None:
+            return
+        del self.archivos_preparar[i]
+        self._preparar_refrescar_lista()
+
+    def _preparar_unir(self):
+        if not self.archivos_preparar:
+            messagebox.showinfo("Sin archivos", "Añade al menos un documento.")
+            return
+        # Si hay Word y no hay convertidor, avisar antes de empezar.
+        hay_word = any(r.lower().endswith((".doc", ".docx")) for r in self.archivos_preparar)
+        if hay_word and pdf_tools.detectar_convertidor() is None:
+            messagebox.showwarning("No se puede convertir Word",
+                "No encuentro Word ni LibreOffice para convertir los archivos de "
+                "Word. Pásalos a PDF a mano, o instala LibreOffice.")
+            return
+        nombre = self.nombre_output.get().strip() or "periodico"
+        nombre = github_pages.slug(nombre)
+        carpeta = os.path.abspath(os.path.expanduser("~/Descargas"))
+        archivos = list(self.archivos_preparar)
+        self.preparar_progress.start()
+        self.preparar_estado.config(text="Preparando el PDF...", foreground="orange")
+        self.btn_unir.config(state=tk.DISABLED)
+
+        def _w():
+            try:
+                ruta = pdf_tools.preparar_periodico(archivos, carpeta, nombre)
+                self.root.after(0, lambda: _ok(ruta))
+            except Exception as e:
+                msg = str(e)
+                self.root.after(0, lambda: _err(msg))
+
+        def _ok(ruta):
+            self.preparar_progress.stop()
+            self.btn_unir.config(state=tk.NORMAL)
+            self.preparar_estado.config(text="PDF creado ✅", foreground="green")
+            self.pdf_path.set(ruta)
+            self.notebook.select(self.tab_flipbook)
+            messagebox.showinfo("PDF listo",
+                "He unido los documentos en un PDF.\n\n"
+                "Ahora pulsa «Generar vista previa» para verlo y, si te gusta, "
+                "«Generar enlace para la web».")
+
+        def _err(msg):
+            self.preparar_progress.stop()
+            self.btn_unir.config(state=tk.NORMAL)
+            self.preparar_estado.config(text="❌ No se pudo crear el PDF", foreground="red")
+            messagebox.showwarning("No se pudo crear el PDF",
+                f"Hubo un problema preparando el PDF.\n\n{msg}")
+
+        threading.Thread(target=_w, daemon=True).start()
 
     def generar_preview(self):
         if not self.pdf_path.get():

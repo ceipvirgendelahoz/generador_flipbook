@@ -45,8 +45,12 @@ except ImportError:
     HAS_IMAGETK = False
 
 
-def generar_html(titulo, num_pages):
-    """Genera el HTML del flipbook con StPageFlip y fixes de navegación"""
+def generar_html(titulo, num_pages, descripcion=""):
+    """Genera el HTML del flipbook con StPageFlip y fixes de navegación.
+
+    `descripcion` es texto opcional que se muestra como subtítulo en la
+    cabecera de la página publicada (lo que ven las familias). Si está vacío
+    se usa el subtítulo genérico."""
     
     html = """<!DOCTYPE html>
 <html lang="es">
@@ -228,7 +232,7 @@ def generar_html(titulo, num_pages):
 <body>
     <div class="header">
         <h1>__TITULO__</h1>
-        <p>📰 Periódico Digital Interactivo</p>
+        <p>__SUBTITULO__</p>
     </div>
     
     <div id="flipbook-container">
@@ -472,10 +476,19 @@ def generar_html(titulo, num_pages):
 </html>
 """
     
+    # Subtítulo: la descripción del usuario (escapada) o el texto genérico
+    desc = (descripcion or "").strip()
+    if desc:
+        subtitulo = (desc.replace("&", "&amp;").replace("<", "&lt;")
+                        .replace(">", "&gt;").replace("\n", "<br>"))
+    else:
+        subtitulo = "📰 Periódico Digital Interactivo"
+
     # Reemplazar placeholders
     html = html.replace("__TITULO__", titulo)
+    html = html.replace("__SUBTITULO__", subtitulo)
     html = html.replace("__NUM_PAGES__", str(num_pages))
-    
+
     return html
 
 
@@ -988,14 +1001,19 @@ class CreadorFlipbook:
         self.nombre_output.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=2)
         self.nombre_output.insert(0, f"periodico_{datetime.now().strftime('%d_%m_%Y').lower()}")
 
-        # --- Sección 2: Título del periódico ------------------------------------
-        sec_post = ttk.LabelFrame(left, text="2. Título del periódico", padding="8")
+        # --- Sección 2: Título y descripción del periódico ----------------------
+        sec_post = ttk.LabelFrame(left, text="2. Título y descripción del periódico", padding="8")
         sec_post.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=3)
         sec_post.columnconfigure(0, weight=1)
 
-        ttk.Label(sec_post, text="Título:").grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(sec_post, text="Título (aparece en la cabecera de la página):").grid(row=0, column=0, sticky=tk.W)
         self.post_titulo = ttk.Entry(sec_post, width=44)
-        self.post_titulo.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(2, 4))
+        self.post_titulo.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(2, 6))
+
+        ttk.Label(sec_post, text="Descripción (opcional, se muestra bajo el título):").grid(row=2, column=0, sticky=tk.W)
+        self.post_contenido = tk.Text(sec_post, height=3, width=44, wrap=tk.WORD,
+                                      font=("Segoe UI", 10), relief="solid", borderwidth=1)
+        self.post_contenido.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(2, 2))
 
         # --- Sección 3: Publicar en la web (GitHub Pages) -------------------
         sec_gh = ttk.LabelFrame(left, text="3. Publicar en la web", padding="8")
@@ -1109,13 +1127,14 @@ class CreadorFlipbook:
                 image.thumbnail((1200, 1600), Image.Resampling.LANCZOS)
                 image.save(os.path.join(pages_dir, f"page_{i:03d}.png"), "PNG", optimize=True)
 
+            titulo_post = self.post_titulo.get().strip() or nombre
+            contenido_post = self.post_contenido.get("1.0", tk.END).strip()
+
             html_path = os.path.join(tmp, "index.html")
             with open(html_path, "w", encoding="utf-8") as f:
-                f.write(generar_html(nombre, len(imgs)))
+                f.write(generar_html(titulo_post, len(imgs), contenido_post))
 
             # Página de vista previa (título + flipbook)
-            titulo_post = self.post_titulo.get().strip() or nombre
-            contenido_post = ""
             preview_path = os.path.join(tmp, "preview_post.html")
             with open(preview_path, "w", encoding="utf-8") as f:
                 f.write(generar_preview_post_html(titulo_post, contenido_post, "index.html"))
@@ -1230,7 +1249,9 @@ class CreadorFlipbook:
             self.status_label.config(text="Creando HTML...", foreground="orange")
             self.root.update()
             
-            html_content = generar_html(nombre, len(images))
+            titulo_pag = self.post_titulo.get().strip() or nombre
+            descripcion = self.post_contenido.get("1.0", tk.END).strip()
+            html_content = generar_html(titulo_pag, len(images), descripcion)
             html_path = os.path.join(output_dir, "index.html")
             with open(html_path, "w", encoding="utf-8") as f:
                 f.write(html_content)

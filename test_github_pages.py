@@ -21,24 +21,44 @@ def _flipbook_tmp(n_paginas):
         open(os.path.join(d, "pages", f"page_{i:03d}.png"), "wb").write(png)
     return d
 
+def _esperar(cond, timeout=25, intervalo=1.5):
+    """Reintenta cond() hasta que sea verdadera o se agote el tiempo.
+    La API de GitHub tiene latencia de lectura-tras-escritura: tras mover la
+    ref, una lectura inmediata puede ver aún el estado anterior. Las funciones
+    reciben el token por cierre, NO como argumento de un assert, para que el
+    token nunca aparezca en la salida de pytest si una aserción falla."""
+    fin = time.time() + timeout
+    while time.time() < fin:
+        try:
+            if cond():
+                return True
+        except Exception:
+            pass
+        time.sleep(intervalo)
+    return False
+
 def test_ciclo_real_publicar_listar_borrar():
     tok = _token()
     nombre = f"zz-test-{int(time.time())}"
     s = gp.slug(nombre)
+
+    def _solo_una_pagina():
+        _, blobs = gp._arbol_actual(tok)
+        pgs = [b["path"] for b in blobs if b["path"].startswith(f"{s}/pages/")]
+        return pgs == [f"{s}/pages/page_001.png"]
+
     try:
         url = gp.publicar(tok, nombre, _flipbook_tmp(3))
         assert url == f"{gp.PAGES_URL}/{s}/"
-        assert gp.existe(tok, nombre) is True
-        assert any(it["nombre"] == s for it in gp.listar(tok))
+        assert _esperar(lambda: gp.existe(tok, nombre) is True), "no apareció tras publicar"
+        assert _esperar(lambda: any(it["nombre"] == s for it in gp.listar(tok))), "no aparece en listar"
         # republish con menos páginas -> sin huérfanos
         gp.publicar(tok, nombre, _flipbook_tmp(1))
-        _, blobs = gp._arbol_actual(tok)
-        pgs = [b["path"] for b in blobs if b["path"].startswith(f"{s}/pages/")]
-        assert pgs == [f"{s}/pages/page_001.png"], pgs
+        assert _esperar(_solo_una_pagina), "quedaron páginas huérfanas tras republish"
     finally:
         gp.borrar(tok, nombre)
-    assert gp.existe(tok, nombre) is False
-    assert all(it["nombre"] != s for it in gp.listar(tok))
+    assert _esperar(lambda: gp.existe(tok, nombre) is False), "sigue existiendo tras borrar"
+    assert _esperar(lambda: all(it["nombre"] != s for it in gp.listar(tok))), "sigue en listar tras borrar"
 
 def test_slug_basico():
     assert gp.slug("Periódico Marzo 2025") == "periodico-marzo-2025"

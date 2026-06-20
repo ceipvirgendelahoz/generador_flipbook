@@ -1539,6 +1539,7 @@ code {{
                 messagebox.showwarning("No se pudo borrar",
                     "No se ha podido borrar. Revisa tu conexión a internet. "
                     "Si el problema sigue, avisa a Dani.")
+                return
             self._recargar_periodicos()
         threading.Thread(target=_w, daemon=True).start()
 

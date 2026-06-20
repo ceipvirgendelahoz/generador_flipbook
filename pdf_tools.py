@@ -59,14 +59,21 @@ def _convertir_word(archivo, carpeta_salida):
     salida = os.path.join(
         carpeta_salida,
         os.path.splitext(os.path.basename(archivo))[0] + ".pdf")
-    word = win32com.client.Dispatch("Word.Application")
-    word.Visible = False
     try:
-        doc = word.Documents.Open(os.path.abspath(archivo))
-        doc.SaveAs(os.path.abspath(salida), FileFormat=17)  # 17 = wdFormatPDF
-        doc.Close()
-    finally:
-        word.Quit()
+        word = win32com.client.Dispatch("Word.Application")
+        word.Visible = False
+        try:
+            doc = word.Documents.Open(os.path.abspath(archivo))
+            doc.SaveAs(os.path.abspath(salida), FileFormat=17)  # 17 = wdFormatPDF
+            doc.Close()
+        finally:
+            word.Quit()
+    except ConversionError:
+        raise
+    except Exception as e:
+        # Errores COM crudos -> mensaje legible para la GUI
+        raise ConversionError(
+            f"Word no pudo convertir {os.path.basename(archivo)}: {e}")
     if not os.path.exists(salida):
         raise ConversionError(f"No se pudo convertir: {os.path.basename(archivo)}")
     return salida
@@ -131,12 +138,15 @@ def preparar_periodico(archivos_ordenados, carpeta_salida, nombre_pdf):
     carpeta_salida/<nombre_pdf>.pdf. Devuelve la ruta del PDF combinado."""
     os.makedirs(carpeta_salida, exist_ok=True)
     tmp = tempfile.mkdtemp(prefix="prep_periodico_")
-    pdfs = []
-    for i, archivo in enumerate(archivos_ordenados):
-        sub = os.path.join(tmp, str(i))  # subcarpeta por índice: evita choques de nombre
-        os.makedirs(sub, exist_ok=True)
-        pdfs.append(convertir_a_pdf(archivo, sub))
-    nombre = nombre_pdf if nombre_pdf.lower().endswith(".pdf") else nombre_pdf + ".pdf"
-    salida = os.path.join(carpeta_salida, nombre)
-    unir_pdfs(pdfs, salida)
-    return salida
+    try:
+        pdfs = []
+        for i, archivo in enumerate(archivos_ordenados):
+            sub = os.path.join(tmp, str(i))  # subcarpeta por índice: evita choques de nombre
+            os.makedirs(sub, exist_ok=True)
+            pdfs.append(convertir_a_pdf(archivo, sub))
+        nombre = nombre_pdf if nombre_pdf.lower().endswith(".pdf") else nombre_pdf + ".pdf"
+        salida = os.path.join(carpeta_salida, nombre)
+        unir_pdfs(pdfs, salida)
+        return salida
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)

@@ -19,6 +19,7 @@ import platform
 import zipfile
 import tempfile
 import subprocess
+import time
 import threading
 import webbrowser
 import urllib.request
@@ -1383,6 +1384,17 @@ code {{
                 if token:
                     github_pages.borrar(token, nombre)
                     ok = True
+                    # GitHub tiene latencia lectura-tras-escritura: esperamos a
+                    # que el borrado se refleje antes de recargar, si no el panel
+                    # mostraría el periódico como si no se hubiera borrado.
+                    objetivo = github_pages.slug(nombre)
+                    for _ in range(12):
+                        try:
+                            if all(it["nombre"] != objetivo for it in github_pages.listar(token)):
+                                break
+                        except Exception:
+                            pass
+                        time.sleep(1.0)
             except Exception:
                 ok = False
             self.root.after(0, lambda: _fin(ok))

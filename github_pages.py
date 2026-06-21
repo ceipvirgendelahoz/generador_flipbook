@@ -1,5 +1,6 @@
 """Capa de red para publicar flipbooks en GitHub Pages. Sin tkinter."""
 import os
+import sys
 import re
 import json
 import base64
@@ -7,8 +8,38 @@ import unicodedata
 import urllib.request
 import urllib.error
 
-OWNER = "dtabuyodesigner"
-REPO = "generador_flipbook"
+
+def _repo_desde_archivo(directorios):
+    """Lee 'owner/repo' de un repositorio.txt en alguno de los directorios.
+    Devuelve (owner, repo) o None."""
+    for d in directorios:
+        ruta = os.path.join(d, "repositorio.txt")
+        if os.path.exists(ruta):
+            try:
+                txt = open(ruta, encoding="utf-8").read().strip()
+            except Exception:
+                continue
+            if "/" in txt:
+                owner, repo = (s.strip() for s in txt.split("/", 1))
+                if owner and repo:
+                    return owner, repo
+    return None
+
+
+def _cargar_repo():
+    """owner/repo desde repositorio.txt (junto al .exe/script o carpeta padre),
+    o los valores por defecto si no hay archivo válido."""
+    dirs = []
+    try:
+        dirs.append(os.path.dirname(os.path.abspath(sys.executable)))
+    except Exception:
+        pass
+    dirs.append(os.path.dirname(os.path.abspath(__file__)))
+    dirs.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return _repo_desde_archivo(dirs) or ("dtabuyodesigner", "generador_flipbook")
+
+
+OWNER, REPO = _cargar_repo()
 BRANCH = "gh-pages"
 API = f"https://api.github.com/repos/{OWNER}/{REPO}"
 PAGES_URL = f"https://{OWNER}.github.io/{REPO}"

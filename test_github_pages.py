@@ -78,3 +78,18 @@ def test_slug_vacio_por_defecto():
 
 def test_slug_conserva_guion_bajo_interno():
     assert gp.slug("periodico_20_06_2026") == "periodico_20_06_2026"
+
+def test_repo_desde_archivo_lee_owner_repo(tmp_path):
+    import github_pages as gp
+    (tmp_path / "repositorio.txt").write_text("miorg/mirepo")
+    assert gp._repo_desde_archivo([str(tmp_path)]) == ("miorg", "mirepo")
+
+def test_repo_desde_archivo_sin_archivo(tmp_path):
+    import github_pages as gp
+    assert gp._repo_desde_archivo([str(tmp_path)]) is None
+
+def test_repo_por_defecto():
+    import github_pages as gp
+    # Sin repositorio.txt junto al módulo -> valores por defecto
+    assert gp.OWNER == "dtabuyodesigner" and gp.REPO == "generador_flipbook"
+    assert gp.PAGES_URL == "https://dtabuyodesigner.github.io/generador_flipbook"

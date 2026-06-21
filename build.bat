@@ -47,7 +47,7 @@ pip install --quiet pdf2image pillow pyinstaller pypdf pywin32
 set "ICON_ARG="
 if exist icono.ico set "ICON_ARG=--icon=icono.ico"
 
-echo Construyendo el .exe (esto tarda 1-2 minutos)...
+echo Construyendo el .exe, esto tarda 1-2 minutos...
 if defined POPPLER_BIN (
     echo Empaquetando Poppler desde: %POPPLER_BIN%
     pyinstaller --onefile --windowed --name "GeneradorPeriodico" --clean %ICON_ARG% --add-data "%POPPLER_BIN%;poppler/bin" crear_flipbook.py

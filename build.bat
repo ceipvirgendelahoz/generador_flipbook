@@ -36,12 +36,12 @@ if not defined POPPLER_BIN (
     echo AVISO: no encontre Poppler en C:\poppler.
     echo El .exe se creara SIN Poppler dentro, y el equipo de Pilar necesitaria
     echo instalar Poppler aparte. Para empaquetarlo, instala Poppler en C:\poppler
-    echo (ver INSTRUCCIONES_WINDOWS.md) y vuelve a ejecutar este build.
+    echo - mira INSTRUCCIONES_WINDOWS.md - y vuelve a ejecutar este build.
     echo.
     pause
 )
 
-echo Instalando dependencias (pdf2image, pillow, pyinstaller)...
+echo Instalando dependencias: pdf2image, pillow, pyinstaller, pypdf, pywin32...
 pip install --quiet pdf2image pillow pyinstaller pypdf pywin32
 
 set "ICON_ARG="
@@ -85,8 +85,8 @@ echo.
 echo ============================================
 echo  EXITO!
 echo  El .exe esta en: dist\GeneradorPeriodico.exe
-if defined POPPLER_BIN echo  (Poppler va dentro del .exe: Pilar no instala nada)
-echo  Reparte la carpeta dist\ completa
-echo  (GeneradorPeriodico.exe + tokengenerarflipbook.txt).
+if defined POPPLER_BIN echo  Poppler va dentro del .exe, Pilar no instala nada.
+echo  Reparte la carpeta dist\ completa:
+echo  GeneradorPeriodico.exe + tokengenerarflipbook.txt
 echo ============================================
 pause

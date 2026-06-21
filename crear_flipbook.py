@@ -826,6 +826,10 @@ class CreadorFlipbook:
         self._construir_tab_preparar(self.tab_preparar)
         self._construir_tab_dividir(self.tab_dividir)
 
+        self.tab_ayuda = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab_ayuda, text="❓ Ayuda")
+        self._construir_tab_ayuda(self.tab_ayuda)
+
         # Limpiar la vista previa temporal al cerrar la ventana
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -1952,6 +1956,91 @@ code {{
     def _dividir_abrir_carpeta(self):
         if self._dividir_ultima_salida:
             self._abrir_carpeta_ruta(self._dividir_ultima_salida)
+
+    def _construir_tab_ayuda(self, parent):
+        cont = ttk.Frame(parent, padding="10")
+        cont.pack(fill=tk.BOTH, expand=True)
+
+        indice = ttk.Frame(cont)
+        indice.pack(fill=tk.X)
+        ttk.Label(indice, text="Ir a:").pack(side=tk.LEFT, padx=(0, 6))
+
+        marco = ttk.Frame(cont)
+        marco.pack(fill=tk.BOTH, expand=True, pady=(8, 0))
+        scroll = ttk.Scrollbar(marco)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        txt = tk.Text(marco, wrap=tk.WORD, yscrollcommand=scroll.set,
+                      font=("Segoe UI", 10), relief="flat", padx=12, pady=8,
+                      background="#f7f8fc", cursor="arrow")
+        txt.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scroll.config(command=txt.yview)
+        self.ayuda_text = txt
+
+        txt.tag_configure("h1", font=("Segoe UI", 14, "bold"),
+                          foreground="#5c6bc0", spacing1=12, spacing3=6)
+
+        # (clave_marcador, etiqueta_boton, titulo, cuerpo)
+        secciones = [
+            ("sec_preparar", "Preparar PDF", "📎 Preparar PDF",
+             "Junta varios documentos (Word y/o PDF) en un solo PDF.\n\n"
+             "1) Pulsa «➕ Añadir archivos» y elígelos.\n"
+             "2) Ordénalos con las flechas 🔼🔽 o arrastrándolos con el ratón "
+             "(el orden de la lista es el orden del periódico).\n"
+             "3) Pulsa «📎 Unir y crear el PDF del periódico». Se guarda en tu "
+             "carpeta Descargas.\n"
+             "4) Luego pulsa «📂 Abrir carpeta» (si solo querías juntar PDFs) o "
+             "«➡ Generar flipbook con este PDF» para publicarlo.\n\n"
+             "Para convertir Word necesitas Word o LibreOffice instalado. Esto "
+             "funciona sin internet."),
+            ("sec_generar", "Generar y publicar", "🔗 Generar flipbook y publicar",
+             "1) En «2. Generar flipbook», elige el PDF con «Examinar…» (o ya "
+             "estará si vienes de Preparar PDF).\n"
+             "2) Escribe el nombre; debajo verás «Se publicará como: …».\n"
+             "3) Opcional: Título y Descripción (salen en la página).\n"
+             "4) «🔄 Generar vista previa» para verlo antes.\n"
+             "5) «🔗 Generar enlace para la web». Al terminar verás dos enlaces: "
+             "CORTO (recomendado) y LARGO.\n"
+             "6) Pulsa «📋 Copiar» en el corto y pégalo en la web del colegio "
+             "(Agregar contenido → Enlaces, o dentro de un Anuncio).\n\n"
+             "Si el enlace corto no abre, usa el largo."),
+            ("sec_dividir", "Dividir PDF", "✂ Dividir PDF",
+             "Para quedarte con algunas páginas o trocear un PDF.\n\n"
+             "1) «Examinar…» y elige el PDF (te dice cuántas páginas tiene).\n"
+             "2) Escribe las páginas: por ejemplo 1-3, 4, 5-9 (vacío = todas).\n"
+             "3) Elige qué hacer:\n"
+             "   • Un solo PDF con esas páginas.\n"
+             "   • Un archivo por cada tramo (cada coma = un archivo).\n"
+             "   • Una página por archivo (trocear todo).\n"
+             "4) «✂ Dividir» → los archivos se crean en Descargas. Sin internet."),
+            ("sec_periodicos", "Mis periódicos", "📚 Mis periódicos",
+             "Lista de lo que ya has publicado.\n\n"
+             "• 📋 Copiar / 🌐 Abrir el enlace.\n"
+             "• 🔄 Actualizar: vuelve a subir ese periódico manteniendo el mismo "
+             "enlace (eliges el PDF nuevo en la pestaña 2 y Generas).\n"
+             "• 🗑 Borrar: lo quita de internet. Acuérdate de quitar también el "
+             "enlace de la web del colegio."),
+            ("sec_fallos", "Si algo falla", "❓ Si algo falla",
+             "• El periódico SIEMPRE se guarda en tu equipo (Descargas), aunque "
+             "falle la subida.\n"
+             "• «No se ha podido publicar»: revisa tu conexión a internet; si "
+             "sigue, avisa a Dani.\n"
+             "• Para convertir Word hace falta Word o LibreOffice en el equipo.\n"
+             "• Un PDF «protegido» con contraseña no se puede usar: quítasela "
+             "primero."),
+        ]
+
+        def _ir(clave):
+            txt.see(clave)
+
+        for clave, etiqueta, titulo, cuerpo in secciones:
+            txt.mark_set(clave, txt.index(tk.END))
+            txt.mark_gravity(clave, "left")
+            txt.insert(tk.END, titulo + "\n", "h1")
+            txt.insert(tk.END, cuerpo + "\n\n")
+            ttk.Button(indice, text=etiqueta,
+                       command=lambda c=clave: _ir(c)).pack(side=tk.LEFT, padx=2)
+
+        txt.config(state=tk.DISABLED)  # solo lectura
 
 
 if __name__ == "__main__":

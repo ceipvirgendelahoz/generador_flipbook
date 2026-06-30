@@ -29,6 +29,7 @@ from datetime import datetime
 import github_pages
 import pdf_tools
 import acortador
+from enlaces_pdf import extraer_enlaces
 
 # Configuración local (URL/usuario WordPress y, opcionalmente, la password)
 CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".flipbook_config.json")
@@ -51,12 +52,17 @@ except ImportError:
     HAS_IMAGETK = False
 
 
-def generar_html(titulo, num_pages, descripcion="", montado_por=""):
+def generar_html(titulo, num_pages, descripcion="", montado_por="", enlaces=None):
     """Genera el HTML del flipbook con StPageFlip y fixes de navegación.
 
     `descripcion` es texto opcional que se muestra como subtítulo en la
     cabecera de la página publicada (lo que ven las familias). Si está vacío
-    se usa el subtítulo genérico."""
+    se usa el subtítulo genérico.
+
+    `enlaces` es un dict {pagina(1-based): [ {url,left,top,width,height}, ... ]}
+    (fracciones 0–1, origen arriba-izquierda) para superponer zonas pinchables
+    sobre las imágenes; lo da `enlaces_pdf.extraer_enlaces`. Si es None, no hay
+    enlaces y el flipbook sale igual que siempre."""
     
     html = """<!DOCTYPE html>
 <html lang="es">
@@ -157,6 +163,21 @@ def generar_html(titulo, num_pages, descripcion="", montado_por=""):
         /* Páginas derechas: número en esquina inferior DERECHA (exterior) */
         .page-right-side .page-number {
             right: 12px;
+        }
+
+        /* Zona pinchable superpuesta sobre un enlace del PDF */
+        .enlace-pdf {
+            position: absolute;
+            z-index: 8;
+            cursor: pointer;
+            border-radius: 4px;
+            background: rgba(102, 126, 234, 0);
+            transition: background .15s ease, box-shadow .15s ease;
+        }
+
+        .enlace-pdf:hover {
+            background: rgba(102, 126, 234, 0.22);
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.65);
         }
 
         .credito-contraportada {
@@ -272,6 +293,7 @@ def generar_html(titulo, num_pages, descripcion="", montado_por=""):
     <script>
         const totalPages = __NUM_PAGES__;
         const montadoPor = "__MONTADO_POR__";
+        const enlacesPorPagina = __ENLACES_JSON__;
         let pageFlip = null;
         let currentPageIndex = 0;
         
@@ -338,6 +360,26 @@ def generar_html(titulo, num_pages, descripcion="", montado_por=""):
                 img.src = 'pages/page_' + String(i).padStart(3, '0') + '.png';
                 img.alt = 'Página ' + i;
                 div.appendChild(img);
+
+                // Zonas pinchables de los enlaces reales del PDF (en su sitio)
+                const enlaces = enlacesPorPagina[i] || [];
+                enlaces.forEach(function(en) {
+                    const a = document.createElement('a');
+                    a.className = 'enlace-pdf';
+                    a.href = en.url;
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
+                    a.title = 'Abrir enlace';
+                    a.style.left = (en.left * 100) + '%';
+                    a.style.top = (en.top * 100) + '%';
+                    a.style.width = (en.width * 100) + '%';
+                    a.style.height = (en.height * 100) + '%';
+                    // Que arrastrar/pulsar el enlace NO pase página
+                    ['mousedown', 'touchstart', 'pointerdown'].forEach(function(ev) {
+                        a.addEventListener(ev, function(e) { e.stopPropagation(); });
+                    });
+                    div.appendChild(a);
+                });
 
                 if (i === totalPages && montadoPor) {
                     const cred = document.createElement('div');
@@ -518,6 +560,9 @@ def generar_html(titulo, num_pages, descripcion="", montado_por=""):
     html = html.replace("__NUM_PAGES__", str(num_pages))
     montado_js = (montado_por or "").replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
     html = html.replace("__MONTADO_POR__", montado_js)
+    # Enlaces como literal JSON; escapar "<" para no romper el </script>
+    enlaces_json = json.dumps(enlaces or {}, ensure_ascii=False).replace("<", "\\u003c")
+    html = html.replace("__ENLACES_JSON__", enlaces_json)
 
     return html
 
@@ -1314,9 +1359,10 @@ class CreadorFlipbook:
             titulo_post = self.post_titulo.get().strip() or nombre
             contenido_post = self.post_contenido.get("1.0", tk.END).strip()
 
+            enlaces = extraer_enlaces(self.pdf_path.get())
             html_path = os.path.join(tmp, "index.html")
             with open(html_path, "w", encoding="utf-8") as f:
-                html_content = generar_html(titulo_post, len(imgs), contenido_post, self.montado_por.get().strip())
+                html_content = generar_html(titulo_post, len(imgs), contenido_post, self.montado_por.get().strip(), enlaces)
                 f.write(html_content)
 
             # Página de vista previa (título + flipbook)
@@ -1439,7 +1485,8 @@ class CreadorFlipbook:
             descripcion = self.post_contenido.get("1.0", tk.END).strip()
             montado = self.montado_por.get().strip()
             cfg_g = cargar_config(); cfg_g["montado_por"] = montado; guardar_config(cfg_g)
-            html_content = generar_html(titulo_pag, len(images), descripcion, montado)
+            enlaces = extraer_enlaces(self.pdf_path.get())
+            html_content = generar_html(titulo_pag, len(images), descripcion, montado, enlaces)
             html_path = os.path.join(output_dir, "index.html")
             with open(html_path, "w", encoding="utf-8") as f:
                 f.write(html_content)
